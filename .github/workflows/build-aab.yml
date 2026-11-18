@@ -1,0 +1,79 @@
+name: Build Android AAB & APK (Sweet Blast 3D)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-android-aab:
+    name: Build Signed Release AAB & APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Dependencies & Build Web Bundle
+        run: |
+          npm install
+          npm run build:android
+
+      - name: Setup Capacitor Android Project
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Generate Release Keystore for AAB Signing
+        run: |
+          keytool -genkey -v \
+            -keystore sweet-blast-release.keystore \
+            -alias sweetblast \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass sweetblast123 \
+            -keypass sweetblast123 \
+            -dname "CN=Sweet Blast 3D, OU=Games, O=SweetBlast, L=Hyderabad, ST=Telangana, C=IN"
+
+      - name: Build Signed Release AAB (Android App Bundle) & APK
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/sweet-blast-release.keystore \
+            -Pandroid.injected.signing.store.password=sweetblast123 \
+            -Pandroid.injected.signing.key.alias=sweetblast \
+            -Pandroid.injected.signing.key.password=sweetblast123
+          ./gradlew assembleDebug
+
+      - name: Upload Play Store Ready AAB File
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sweet-Blast-3D-PlayStore-AAB
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            sweet-blast-release.keystore
+
+      - name: Upload Installable APK File
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sweet-Blast-3D-Android-APK
+          path: android/app/build/outputs/apk/debug/*.apk

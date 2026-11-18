@@ -1,0 +1,13 @@
+{
+  "appId": "com.sweetblast3d.game",
+  "appName": "Sweet Blast 3D",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#180D1E",
+    "allowMixedContent": true
+  }
+}
